@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>مسح صحي - تصوير جسمك وخطة صحتك</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Tajawal',sans-serif}
+body{background:#0a0a0a;color:#fff;padding:20px;max-width:600px;margin:auto}
+h1{color:#00ff88;text-align:center;margin-bottom:15px}
+.card{background:#111;border:2px solid #00ff88;border-radius:15px;padding:20px;margin:15px 0}
+input,select,button{width:100%;padding:12px;margin:8px 0;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#fff;font-size:16px}
+button{background:#00ff88;color:#000;font-weight:bold;cursor:pointer;border:none}
+button:hover{opacity:.9}
+video,canvas,img{width:100%;border-radius:10px;margin:10px 0;border:2px solid #333}
+.result{background:#1a1a1a;padding:15px;border-radius:10px;margin-top:15px;border-right:4px solid #00ff88}
+.badge{display:inline-block;background:#00ff88;color:#000;padding:5px 10px;border-radius:20px;font-size:12px;margin:3px}
+.warning{color:#ffaa00;font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<h1>📸 مسح صحي سريع</h1>
+<p class="warning">ده مش تشخيص طبي. أداة تقدير عامة فقط.</p>
+
+<div class="card">
+  <h3>1. صور جسمك أو ارفع صورة</h3>
+  <video id="cam" autoplay playsinline></video>
+  <button onclick="takePhoto()">التقط صورة</button>
+  <input type="file" accept="image/*" onchange="loadFile(event)">
+  <canvas id="canvas" style="display:none"></canvas>
+  <img id="preview" style="display:none">
+</div>
+
+<div class="card">
+  <h3>2. بياناتك الأساسية</h3>
+  <input id="age" type="number" placeholder="العمر">
+  <input id="height" type="number" placeholder="الطول بالسم - مثال 175">
+  <input id="weight" type="number" placeholder="الوزن بالكجم - مثال 75">
+  <select id="gender">
+    <option value="male">ذكر</option>
+    <option value="female">أنثى</option>
+  </select>
+  <select id="activity">
+    <option value="1.2">قليل الحركة</option>
+    <option value="1.375">نشاط خفيف</option>
+    <option value="1.55">نشاط متوسط</option>
+    <option value="1.725">نشاط عالي</option>
+  </select>
+  <button onclick="analyze()">حلل واعمل خطة</button>
+</div>
+
+<div id="output"></div>
+
+<script>
+let imgData = null;
+
+// تشغيل الكاميرا
+navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(stream=>{
+  document.getElementById('cam').srcObject = stream;
+}).catch(()=>{});
+
+function takePhoto(){
+  const video = document.getElementById('cam');
+  const canvas = document.getElementById('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video,0,0);
+  imgData = canvas.toDataURL();
+  document.getElementById('preview').src = imgData;
+  document.getElementById('preview').style.display='block';
+}
+
+function loadFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    imgData = ev.target.result;
+    document.getElementById('preview').src = imgData;
+    document.getElementById('preview').style.display='block';
+  }
+  reader.readAsDataURL(file);
+}
+
+function analyze(){
+  const age = +document.getElementById('age').value;
+  const h = +document.getElementById('height').value/100;
+  const w = +document.getElementById('weight').value;
+  const gender = document.getElementById('gender').value;
+  const activity = +document.getElementById('activity').value;
+
+  if(!age||!h||!w){alert('دخل العمر والطول والوزن');return}
+
+  // حسابات أساسية
+  const bmi = w/(h*h);
+  let bmiCat = bmi<18.5?'نحافة':bmi<25?'طبيعي':bmi<30?'زيادة وزن':'سمنة';
+
+  // BMR معادلة Mifflin
+  const bmr = gender==='male'? 10*w + 6.25*h*100 - 5*age + 5 : 10*w + 6.25*h*100 - 5*age - 161;
+  const calories = Math.round(bmr*activity);
+
+  // تقدير شكل الجسم من الصورة - بسيط
+  let bodyTip = 'اهتم بالرياضة والمشي 30 دقيقة يوميا';
+  if(bmi>=30) bodyTip = 'ركز على تقليل السعرات + مشي سريع + تمارين مقاومة';
+  if(bmi<18.5) bodyTip = 'زود بروتين وسعرات + تمارين مقاومة لبناء كتلة';
+
+  // خطة يومية
+  const plan = `
+  <div class="result">
+    <h3>نتيجتك</h3>
+    <p><span class="badge">BMI: ${bmi.toFixed(1)}</span> <span class="badge">${bmiCat}</span></p>
+    <p><span class="badge">سعرات يومية: ${calories}</span></p>
+
+    <h3 style="margin-top:15px">خطة سريعة ليك</h3>
+    <p>1. <b>التغذية</b>: ${bodyTip}</p>
+    <p>2. <b>المياه</b>: اشرب ${Math.round(w*35)} مل يوميا ≈ ${(w*35/1000).toFixed(1)} لتر</p>
+    <p>3. <b>الحركة</b>: 10 آلاف خطوة أو 30 دقيقة مشي</p>
+    <p>4. <b>النوم</b>: 7-8 ساعات</p>
+
+    <h3 style="margin-top:15px">وجبة نموذجية</h3>
+    <p>فطار: بيض + شوفان + موزة</p>
+    <p>غداء: صدر فراخ + رز بني + خضار</p>
+    <p>عشاء: تونة أو زبادي + خيار</p>
+
+    <p class="warning" style="margin-top:15px">ملحوظة: الصورة بتساعد بس على التقدير البصري. الوزن والطول هما الأساس.</p>
+  </div>
+  `;
+  document.getElementById('output').innerHTML = plan;
+}
+</script>
+</body>
+</html>
